@@ -1,0 +1,82 @@
+version: '3.7'
+
+x-airflow-base: &airflow-base
+  build: .
+  user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+  env_file:
+    - .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    PYTHONPATH: "/opt/airflow/src:${PYTHONPATH}"
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_NAME: airflow
+    DB_USER: airflow
+    DB_PASSWORD: airflow
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./src:/opt/airflow/src
+    - ./configs:/opt/airflow/configs
+    - ./schema:/opt/airflow/schema
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER:     airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB:       airflow
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-base
+    command:
+      - bash
+      - -c
+      - |
+        airflow db init &&
+        airflow users create \
+          --username airflow \
+          --password airflow \
+          --firstname Air \
+          --lastname Flow \
+          --role Admin \
+          --email airflow@example.com &&
+        psql postgresql://airflow:airflow@postgres/airflow -f /opt/airflow/schema/ddl.sql
+    user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  scheduler:
+    <<: *airflow-base
+    command: ["airflow", "scheduler"]
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  webserver:
+    <<: *airflow-base
+    command: ["airflow", "webserver"]
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully

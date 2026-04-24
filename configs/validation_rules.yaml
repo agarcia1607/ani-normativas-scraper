@@ -1,0 +1,60 @@
+# configs/validation_rules.yaml
+# ---------------------------------------------------------------
+# Reglas de validación por campo.
+#
+# Cada campo puede tener:
+#   type        : str | int | bool | date  (verificación de tipo/formato)
+#   regex       : expresión regular que debe cumplir el valor (str)
+#   required    : true → si falla, se descarta la fila completa
+#                 false → si falla, el campo queda NULL pero la fila sigue
+#
+# Comportamiento:
+#   - Campo inválido + required=false  → campo = NULL, fila se conserva
+#   - Campo inválido + required=true   → fila descartada completa
+# ---------------------------------------------------------------
+
+fields:
+  title:
+    type: str
+    regex: "^.{1,65}$"          # entre 1 y 65 caracteres
+    required: true
+
+  external_link:
+    type: str
+    regex: "^https?://.+"       # debe ser URL válida
+    required: true
+
+  created_at:
+    type: date                  # formato YYYY-MM-DD
+    required: true
+
+  entity:
+    type: str
+    regex: "^.{1,200}$"
+    required: true
+
+  classification_id:
+    type: int
+    required: true
+
+  rtype_id:
+    type: int
+    required: false
+
+  gtype:
+    type: str
+    regex: "^(link|document|other)$"
+    required: false
+
+  summary:
+    type: str
+    regex: "^.{0,2000}$"       # opcional, máximo 2000 chars
+    required: false
+
+  is_active:
+    type: bool
+    required: false
+
+  update_at:
+    type: str                   # timestamp como string, no crítico
+    required: false
